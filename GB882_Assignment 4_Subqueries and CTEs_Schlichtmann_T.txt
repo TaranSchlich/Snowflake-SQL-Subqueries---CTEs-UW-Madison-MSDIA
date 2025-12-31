@@ -1,0 +1,91 @@
+GB882
+Assignment 4 - Subqueries and CTEs
+By Taran Schlichtmann
+
+
+/* Identifying zip codes that have a high percentage of people with advanced degrees. Listing each zip code, the % of the total population with an advanced degree in that zip code, and classification based on that percentage. When the percent is at or above 5, the state with classified as 'high' and all other cases as 'low'. Only including data from 2018 and with a population greater than 0. Sorting the results from highest to lowest percentage. For context, based on research, technology workers are more interested in karate than many other fields so identifying areas that have a strong pool of tech talent and plan to build dojos in those areas. */
+
+WITH zip_stats AS (
+    SELECT
+        ZIP_CODE,
+        ROUND((EDUCATION_MASTERS_DEGREE / POPULATION_TOTAL) * 100, 2) AS PERCENT_ADVANCED_DEGREE,
+        CASE
+            WHEN (EDUCATION_MASTERS_DEGREE / POPULATION_TOTAL) >= 0.05 THEN 'High'
+            ELSE 'Low'
+        END AS CLASSIFICATION
+    FROM CENSUS_BY_ZIP_CODE
+    WHERE REPORTING_YEAR = 2018
+      AND POPULATION_TOTAL > 0
+)
+SELECT
+    ZIP_CODE,
+    PERCENT_ADVANCED_DEGREE,
+    CLASSIFICATION
+FROM zip_stats
+ORDER BY PERCENT_ADVANCED_DEGREE DESC;
+
+/* Determining how many zip codes at least 60% of the population have an advanced degree. */
+
+WITH zip_stats AS (
+    SELECT
+        ZIP_CODE,
+        ROUND((EDUCATION_MASTERS_DEGREE / POPULATION_TOTAL) * 100, 2) AS PERCENT_ADVANCED_DEGREE
+    FROM CENSUS_BY_ZIP_CODE
+    WHERE REPORTING_YEAR = 2018
+      AND POPULATION_TOTAL > 0
+)
+SELECT COUNT(*) AS ZIP_CODES_WITH_60_PERCENT_OR_MORE
+FROM zip_stats
+WHERE PERCENT_ADVANCED_DEGREE >= 60;
+
+
+
+/* Listing the number of households in 2018 in “Clark County” (NV), “Los Angeles County” (CA), and “Maricopa County” (AZ). Sorting the results from most to fewest households. For context, family lives in these areas and the idea of moving to a place with family support is ideal.*/
+
+SELECT
+    ZIP_CODE,
+    HOUSEHOLDS
+FROM CENSUS_BY_ZIP_CODE
+WHERE REPORTING_YEAR = 2018
+  AND ZIP_CODE IN (
+      SELECT ZIP_CODE
+      FROM ZIP_CODES
+      WHERE COUNTY IN ('Clark County', 'Los Angeles County', 'Maricopa County')
+        AND STATE_CODE IN ('NV', 'CA', 'AZ')
+  )
+ORDER BY HOUSEHOLDS DESC;
+
+/* Determining in 2018, how many households were in the zip code 90250, which is in Hawthorne, CA. */
+
+SELECT HOUSEHOLDS
+FROM CENSUS_BY_ZIP_CODE
+WHERE REPORTING_YEAR = 2018
+  AND ZIP_CODE = '90250';
+
+/* Identifying the top 10 zip codes with the most total population gorwth. Results show the zip code, 2013 population, 2018 population, growth in numbers, and the growth as a percentage. Only including zip codes that had at least 5000 people in 2013. Top growth determined by using percentage growth. */
+
+WITH pop_2013 AS (
+    SELECT ZIP_CODE, POPULATION_TOTAL AS POP_2013
+    FROM CENSUS_BY_ZIP_CODE
+    WHERE REPORTING_YEAR = 2013
+),
+pop_2018 AS (
+    SELECT ZIP_CODE, POPULATION_TOTAL AS POP_2018
+    FROM CENSUS_BY_ZIP_CODE
+    WHERE REPORTING_YEAR = 2018
+),
+growth_stats AS (
+    SELECT
+        ZIP_CODE,
+        POP_2013,
+        POP_2018,
+        (POP_2018 - POP_2013) AS NUMERIC_GROWTH,
+        ROUND(((POP_2018 - POP_2013) / POP_2013) * 100, 2) AS PERCENT_GROWTH
+    FROM pop_2013
+    JOIN pop_2018 USING (ZIP_CODE)
+    WHERE POP_2013 >= 5000
+)
+SELECT *
+FROM growth_stats
+ORDER BY PERCENT_GROWTH DESC
+LIMIT 10;
